@@ -91,16 +91,23 @@ class SVC:
     Args:
         X: numpy array, shape (n_samples, n_features), training data
         y: numpy array, shape (n_samples,), training labels'''
-    def __init__(self, C=1, kernal='linear', tol=1e-6, max_passes=1000):
+    def __init__(self, C=1, kernal='linear', tol=1e-6, max_passes=1000, gamma=0.3, degree=3):
         self.C = C
         self.kernal_type = kernal
-        self.kernal = self.linear_kernal
         self.tol = tol
         self.max_passes = max_passes
         self.classes = None
         self.intercepts = None
         self.support_vectors = None
         self.supports = None
+        if self.kernal_type == 'linear':
+            self.kernal = self.linear_kernal
+        elif self.kernal_type == 'guassian':
+            self.kernal = lambda x1, x2: self.guassian_kernal(x1, x2, gamma=gamma)
+        elif self.kernal_type == 'polynomial':
+            self.kernal = lambda x1, x2: self.polynomial_kernal(x1, x2, degree=degree)
+        else:
+            raise ValueError('Invalid kernal type. Please choose from linear, guassian or polynomial')
 
     def predict(self, X):
         y_scores = []
@@ -149,6 +156,16 @@ class SVC:
 
     def linear_kernal(self, x1, x2, b=0):
         return x1 @ x2.T + b
+    
+    def guassian_kernal(self, x1, x2, gamma=0.3):
+        num_x2_samples = x2.shape[0]
+        ret = []
+        for i in range(num_x2_samples):
+            ret.append(np.exp(-gamma * np.linalg.norm(x1 - x2[i], axis=1)**2))
+        return np.stack(ret, axis=1)
+    
+    def polynomial_kernal(self, x1, x2, degree=3):
+        return (x1 @ x2.T + 1)**degree
 
     def check_fit(self):
         if self.intercepts is None:
