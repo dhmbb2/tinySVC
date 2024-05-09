@@ -1,49 +1,44 @@
 import numpy as np
 
-class SMO_SOLVER:
+class SMOSolver:
     '''
-    SMO_SOLVER is a class that implements the Sequential Minimal Optimization algorithm for training a SVM.
+    SMOSolver is a class that implements the Sequential Minimal Optimization algorithm for training a SVM.
     Reference: 
     [1] Platt, John. Fast Training of Support Vector Machines using Sequential Minimal Optimization, in Advances in Kernel Methods - Support Vector Learning, B. Scholkopf, C. Burges, A. Smola, eds., MIT Press (1998)
     [2] https://cs229.stanford.edu/materials/smo.pdf
     '''
-    def __init__(self, X, y, C, kernal, tol, max_passes=1000):
+    def __init__(self, X, C, kernal, tol, max_passes=1000):
         '''Args:
-        X: numpy array, shape (n_samples, n_features), training data
-        y: numpy array, shape (n_samples,), training labels
         C: float, regularization parameter
         tol: float, tolerance
         max_passes: int, maximum number of passes
         kernal: str, kernal function, default is None
         '''
         self.X = X
-        self.y = y
         self.C = C
         self.tol = tol
         self.max_passes = max_passes
-        if kernal is None:
-            self.kernal = self.linear_kernal
-        self.init_params()
-
-    def init_params(self):
+        self.kernal = kernal
         self.num_sample = self.X.shape[0]
-        self.alphas = np.zeros(self.X.shape[0])
-        self.w = np.zeros(self.X.shape[1])
-        self.b = 0
         self.K = self.kernal(self.X, self.X)
 
-    def solve(self):
+    def update_state(self, y):
+        self.y = y
+        self.alphas = np.zeros(self.num_sample)
+        self.b = 0
+
+    def __call__(self, y):
+        self.update_state(y)
         passes = 0
         while(passes < self.max_passes):
             num_changed_alphas = 0
             for i in range(self.num_sample):
-                Ei = self.f(i) - self.y[i]
+                Ei = self.calculate_E(i)
                 if not (((self.y[i] * Ei < -self.tol) and (self.alphas[i] < self.C)) or \
                         ((self.y[i] * Ei > self.tol) and (self.alphas[i] > 0))):
                     continue
-                a = np.delete(np.arange(self.num_sample), i)
-                j = np.random.choice(np.delete(np.arange(self.num_sample), i))
-                Ej = self.f(j) - self.y[j]
+                j = self.get_j(i)
+                Ej = self.calculate_E(j)
                 alpha_i_old = self.alphas[i]
                 alpha_j_old = self.alphas[j]
                 if self.y[i] != self.y[j]:
@@ -55,7 +50,7 @@ class SMO_SOLVER:
                 if L == H:
                     continue
                 eta = 2 * self.K[i,j] - self.K[i,i] - self.K[j,j]
-                if eta >= 0:
+                if eta >= 0: 
                     continue
                 alpha_j_new = alpha_j_old - self.y[j] * (Ei - Ej) / eta
                 alpha_j_new = min(H, max(L, alpha_j_new))
@@ -79,39 +74,84 @@ class SMO_SOLVER:
                 passes += 1
             else:
                 passes = 0
-            print(self.alphas)
 
+        support_idx = np.where(self.alphas > self.tol)[0]
+    
+        return (self.alphas * self.y)[support_idx], self.X[support_idx], self.b
 
-        self.cal_w()
-        return self.w, self.b
+    
+    def calculate_E(self, i):
+        return (self.alphas * self.y) @ self.K[:, i] + self.b - self.y[i]
 
-    def cal_w(self):
-        self.w = (self.alphas * self.y) @ self.X
+    def get_j(self, i):
+        return np.random.choice(np.delete(np.arange(self.num_sample), i))
+
+class SVC:
+    '''
+    Args:
+        X: numpy array, shape (n_samples, n_features), training data
+        y: numpy array, shape (n_samples,), training labels'''
+    def __init__(self, C=1, kernal='linear', tol=1e-6, max_passes=1000):
+        self.C = C
+        self.kernal_type = kernal
+        self.kernal = self.linear_kernal
+        self.tol = tol
+        self.max_passes = max_passes
+        self.classes = None
+        self.intercepts = None
+        self.support_vectors = None
+        self.supports = None
+
+    def predict(self, X):
+        y_scores = []
+        for i in range(len(self.classes)):
+            y_scores.append((self.supports[i] @ self.kernal(self.support_vectors[i], X)) + self.intercepts[i])
+        if len(self.classes) == 2:
+            return np.sign(y_scores[0])
+        y_scores = np.array(y_scores)
+        return self.classes[np.argmax(y_scores, axis=0)]
+
+    def fit(self, X, y):
+        support_vectors = []
+        supports = []
+        intercepts = []
+
+        self.classes = np.unique(y)
+        solver = SMOSolver(X, self.C, self.kernal, self.tol, self.max_passes)
+        if len(self.classes) == 2:
+            self.intercepts, self.support_vectors, self.supports = solver(y)
+            return
+        for i, c in enumerate(self.classes):
+            y_c = np.where(y == c, 1, -1)
+            si, sv, intercept= solver(y_c)
+            supports.append(si)
+            support_vectors.append(sv)
+            intercepts.append(intercept)
+        self.intercepts = intercepts
+        self.support_vectors = support_vectors
+        self.supports = supports
+
+    def get_intercept(self):
+        self.check_fit()
+        return self.intercepts
+
+    def get_coefs(self):
+        self.check_fit()
+        
+        if len(self.classes) == 2:
+            return self.supports @ self.support_vectors
+        
+        coefs = []
+        for i in range(len(self.classes)):
+            coefs.append(self.supports[i] @ self.support_vectors[i])
+        return coefs
+    
 
     def linear_kernal(self, x1, x2, b=0):
         return x1 @ x2.T + b
 
-    def f(self, i):
-        return (self.alphas * self.y) @ self.K[:, i] + self.b
-
-class SVC:
-    def __init__(self, kernal='linear', max_iter=1000, C=1.0):
-        self.kernal = kernal
-        self.max_iter = max_iter
-        self.C = C
-        self.w = None
-        self.b = None
-
-    def param(self):
-        return self.w, self.b
-
-    def predict(self, X):
-        if self.w is None or self.b is None:
-            raise ValueError('Model is not trained yet')
-        return np.sign(self.w @ X.T + self.b)
-
-    def fit(self, X, y):
-        self.smo = SMO_SOLVER(X, y, self.C, None, 1e-6, self.max_iter)
-        self.w, self.b = self.smo.solve()
+    def check_fit(self):
+        if self.intercepts is None:
+            raise ValueError('Model has not been trained yet. Please call fit method first.')
         
     
