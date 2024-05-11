@@ -1,8 +1,11 @@
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
-from svm import SVC
+from src.svm import SVC
 from sklearn.svm import SVC as skSVC
+from sklearn.svm import LinearSVC
+import sys
+import time
 
 # Create a SVC instance
 
@@ -38,82 +41,67 @@ def plot_contours(ax, clf, xx, yy, **params):
     out = ax.contourf(xx, yy, Z, **params)
     return out
 
-# # Create a simple dataset
-# X_train = np.array([[1, 1, 1], [2, 2, 2], [3, 3, 3], [4, 4, 4]])
-# y_train = np.array([1, 1, -1, -1])
-
-# # Fit the model
-# svc.fit(X_train, y_train)
-
-# # Create a grid to evaluate model
-# xx, yy = np.meshgrid(range(0, 5), range(0, 5))
-# w, b = svc.param()
-# print(w, b)
-# zz = (b + w[0]*xx + w[1]*yy) / w[2]
-
-# # Plot decision boundary in 3D
-# fig = plt.figure()
-# ax = fig.add_subplot(111, projection='3d')
-# ax.plot_surface(xx, yy, zz, color='b', alpha=0.2)
-# ax.scatter(X_train[:, 0], X_train[:, 1], X_train[:, 2], c=y_train, s=100)
-# ax.set_xlabel('X')
-# ax.set_ylabel('Y')
-# ax.set_zlabel('Z')
-# plt.savefig('3d_decision_boundary.png')
-
-# np.random.seed(1)
-
-# Create a simple 2D dataset
-# X_train = np.array([[1, 1], [2, 2], [3, 3], [4, 4]])
-# y_train = np.array([1, 1, -1, -1])
-
-def draw(X_train, y_train, svc):
+def draw(X_train, y_train, svc, name):
     # Fit the model
     svc.fit(X_train, y_train)
+    path = f"test_img/2d_decision_boundary_with_test_data_{name}.png"
 
     # Create a grid to evaluate model
     xx = np.linspace(0, np.max(X_train), 100)
     # w, b = svc.coef_[0], svc.intercept_
-    ww, bb = svc.get_coefs(), svc.get_intercept()
-    print(ww, bb)
+    # ww, bb = svc.get_coefs(), svc.get_intercept()
+    # print(ww, bb)
 
     # # Calculate decision boundary (z = wx + b)
     # for i in range(3):
     #     zz = (-ww[i][0]/ww[i][1]) * xx - bb[i]/ww[i][1]
     #     plt.plot(xx, zz)
-    # 创建更多的测试数据
-    # X_test = np.random.normal(loc=[0,0], scale=[4,4], size=(100, 2))
-    # 使用模型进行预测
-    # y_pred = svc.predict(X_test)
+    # #创建更多的测试数据
+    X_test = np.random.normal(loc=[0,0], scale=[4,4], size=(100, 2))
+    #使用模型进行预测
+    y_pred = svc.predict(X_test)
 
-
+    plt.figure()
     xx, yy = make_meshgrid(X_train[:, 0], X_train[:, 1])
     plot_contours(plt, svc, xx, yy, cmap=plt.cm.coolwarm, alpha=0.8)
 
     # Plot decision boundary
     plt.scatter(X_train[:, 0], X_train[:, 1], c=y_train, label='Training data')
-    # plt.scatter(X_test[:, 0], X_test[:, 1], c=y_pred, marker='x', label='Test data')
+    plt.scatter(X_test[:, 0], X_test[:, 1], c=y_pred, marker='x', label='Test data')
     plt.legend()
-    plt.savefig('test_img/2d_decision_boundary_with_test_data.png')
+    plt.savefig(path)
 
 def test_linear():
     X1 = np.random.normal(loc=[-5, -5], scale=[1, 1], size=(50, 2))
     X2 = np.random.normal(loc=[6, 6], scale=[1, 1], size=(50, 2))
     X3 = np.random.normal(loc=[10, -6], scale=[1, 1], size=(50, 2))
     X4 = np.random.normal(loc=[-6, 10], scale=[1, 1], size=(50, 2))
-    X5 = np.random.normal(loc=[0, 0], scale=[1, 1], size=(50, 2))
-    X_train = np.concatenate([X1, X2, X3, X4, X5])
+    X_train = np.concatenate([X1, X2, X3, X4])
 
     y1 = np.ones(50)
     y2 = 2 * np.ones(50)
     y3 = 3 * np.ones(50)
     y4 = 4 * np.ones(50)
-    y5 = 5 * np.ones(50)
-    y_train = np.concatenate([y1, y2, y3, y4, y5])
+    # y5 = 5 * np.ones(50)
+    y_train = np.concatenate([y1, y2, y3, y4])
 
-    svc = SVC(kernel='linear')
+    svc_gt = LinearSVC()
 
-    draw(X_train, y_train, svc)    
+    svc1 = SVC(kernal='linear', max_passes=1000)
+    svc2 = SVC(kernal='linear', lang='python')
+
+    start_time = time.time()
+    svc_gt.fit(X_train, y_train)
+    end_time = time.time()
+
+    # print(f"take{end_time - start_time}")
+
+    # svc1.fit(X_train, y_train)
+    # svc2.fit(X_train, y_train)
+    # svc = skSVC()
+
+    draw(X_train, y_train, svc_gt, 'LinearSVC')
+    # draw(X_train, y_train, svc1, 'cpp')    
 
 def test_kernal():
     num_point = 50
@@ -148,5 +136,31 @@ def test_kernal():
 
     draw(X, Y, svc)
 
+def test_cpp_kernal():
+    X1 = np.random.normal(loc=-1, scale=1, size=(50, 2))
+    X2 = np.random.normal(loc=2, scale=1, size=(50, 2))
 
-test_kernal()
+    X_train = np.concatenate([X1, X2])
+    y_train = np.concatenate([np.ones(50), -np.ones(50)])
+
+    svc_gt = skSVC(kernel='linear')
+    svc1 = SVC(lang='python', kernal='linear')
+    svc2 = SVC(lang='c++', kernal='linear')
+
+    svc_gt.fit(X_train, y_train)
+    svc1.fit(X_train, y_train)
+    svc2.fit(X_train, y_train)
+
+
+
+
+# test_cpp_kernal()
+# X = np.array([-5,-5, 6,6]).reshape(2,2)
+# y = np.array([1, -1])
+
+# svc = SVC(kernal='linear', lang='python')
+# svc.fit(X, y)
+# print(svc.supports)
+# print(svc.support_vectors)
+# print(svc.intercepts)
+test_linear()

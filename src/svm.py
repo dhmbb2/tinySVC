@@ -1,4 +1,8 @@
+import sys
+sys.path.append("src/smo_kernal/build/")
 import numpy as np
+import ccsmo
+import time
 
 class SMOSolver:
     '''
@@ -7,7 +11,7 @@ class SMOSolver:
     [1] Platt, John. Fast Training of Support Vector Machines using Sequential Minimal Optimization, in Advances in Kernel Methods - Support Vector Learning, B. Scholkopf, C. Burges, A. Smola, eds., MIT Press (1998)
     [2] https://cs229.stanford.edu/materials/smo.pdf
     '''
-    def __init__(self, X, C, kernal, tol, max_passes=1000):
+    def __init__(self, X, C, kernal, tol, max_passes=1000, gamma=0.3, degree=3, lang='c++'):
         '''Args:
         C: float, regularization parameter
         tol: float, tolerance
@@ -18,16 +22,26 @@ class SMOSolver:
         self.C = C
         self.tol = tol
         self.max_passes = max_passes
-        self.kernal = kernal
+        self.kernal_type = kernal
         self.num_sample = self.X.shape[0]
+        if self.kernal_type == 'linear':
+            self.kernal = self.linear_kernal
+        elif self.kernal_type == 'guassian':
+            self.kernal = lambda x1, x2: self.guassian_kernal(x1, x2, gamma=gamma)
+        elif self.kernal_type == 'polynomial':
+            self.kernal = lambda x1, x2: self.polynomial_kernal(x1, x2, degree=degree)
+        else:
+            raise ValueError('Invalid kernal type. Please choose from linear, guassian or polynomial')
         self.K = self.kernal(self.X, self.X)
+        self.lang = lang
+        assert self.lang in ['c++', 'python']
 
     def update_state(self, y):
         self.y = y
         self.alphas = np.zeros(self.num_sample)
         self.b = 0
 
-    def __call__(self, y):
+    def solve(self, y):
         self.update_state(y)
         passes = 0
         while(passes < self.max_passes):
@@ -54,11 +68,13 @@ class SMOSolver:
                     continue
                 alpha_j_new = alpha_j_old - self.y[j] * (Ei - Ej) / eta
                 alpha_j_new = min(H, max(L, alpha_j_new))
+
                 if abs(alpha_j_new - alpha_j_old) < 1e-5:
                     continue
                 alpha_i_new = alpha_i_old + self.y[i] * self.y[j] * (alpha_j_old - alpha_j_new)
                 b1 = self.b - Ei - self.y[i] * (alpha_i_new - alpha_i_old) * self.K[i,i] - self.y[j] * (alpha_j_new - alpha_j_old) * self.K[i, j]
                 b2 = self.b - Ej - self.y[i] * (alpha_i_new - alpha_i_old) * self.K[i,j] - self.y[j] * (alpha_j_new - alpha_j_old) * self.K[j, j]
+
                 if 0 < alpha_i_new < self.C:
                     b = b1
                 elif 0 < alpha_j_new < self.C:
@@ -70,73 +86,98 @@ class SMOSolver:
                 self.alphas[i] = alpha_i_new
                 self.alphas[j] = alpha_j_new
                 num_changed_alphas += 1
+
             if num_changed_alphas == 0:
                 passes += 1
             else:
                 passes = 0
 
-        support_idx = np.where(self.alphas > self.tol)[0]
+        support_idx = np.where(self.alphas > 1e-6)[0]
+
+        # print(self.alphas)
     
         return (self.alphas * self.y)[support_idx], self.X[support_idx], self.b
 
+    def __call__(self, y):
+        if self.lang == 'python':
+            return self.solve(y)
+        support, sv, b = ccsmo.solve(self.X, y.reshape(-1,1), self.kernal_type, self.C, self.tol, self.max_passes)
+        return support.reshape(-1), [sv], [np.array([b])]
+
+    def pred(self, support, X, X_test, b):
+        return support @ self.kernal(X, X_test) + b
     
     def calculate_E(self, i):
         return (self.alphas * self.y) @ self.K[:, i] + self.b - self.y[i]
 
     def get_j(self, i):
         return np.random.choice(np.delete(np.arange(self.num_sample), i))
+    
+
+    def linear_kernal(self, x1, x2, b=0):
+        return x1 @ x2.T + b
+    
+    def guassian_kernal(self, x1, x2, gamma=0.3):
+        num_x2_samples = x2.shape[0]
+        ret = []
+        for i in range(num_x2_samples):
+            ret.append(np.exp(-gamma * np.linalg.norm(x1 - x2[i], axis=1)**2))
+        return np.stack(ret, axis=1)
+    
+    def polynomial_kernal(self, x1, x2, degree=3):
+        return (x1 @ x2.T + 1)**degree
 
 class SVC:
     '''
     Args:
         X: numpy array, shape (n_samples, n_features), training data
         y: numpy array, shape (n_samples,), training labels'''
-    def __init__(self, C=1, kernal='linear', tol=1e-6, max_passes=1000, gamma=0.3, degree=3):
+    def __init__(self, C=1, kernal='linear', tol=1e-3, max_passes=100, gamma=0.3, degree=3, lang='c++'):
         self.C = C
-        self.kernal_type = kernal
+        self.kernal = kernal
         self.tol = tol
         self.max_passes = max_passes
         self.classes = None
         self.intercepts = None
         self.support_vectors = None
         self.supports = None
-        if self.kernal_type == 'linear':
-            self.kernal = self.linear_kernal
-        elif self.kernal_type == 'guassian':
-            self.kernal = lambda x1, x2: self.guassian_kernal(x1, x2, gamma=gamma)
-        elif self.kernal_type == 'polynomial':
-            self.kernal = lambda x1, x2: self.polynomial_kernal(x1, x2, degree=degree)
-        else:
-            raise ValueError('Invalid kernal type. Please choose from linear, guassian or polynomial')
+        self.solver = None
+        self.lang = lang
+        self.gamma = gamma
+        self.degree = degree
 
     def predict(self, X):
         y_scores = []
-        for i in range(len(self.classes)):
-            y_scores.append((self.supports[i] @ self.kernal(self.support_vectors[i], X)) + self.intercepts[i])
         if len(self.classes) == 2:
-            return np.sign(y_scores[0])
+            y_scores = self.solver.pred(self.supports, self.support_vectors, X, self.intercepts)
+            return np.sign(y_scores)
+        for i in range(len(self.classes)):
+            y_scores.append(self.solver.pred(self.supports[i], self.support_vectors[i], X, self.intercepts[i]))
         y_scores = np.array(y_scores)
         return self.classes[np.argmax(y_scores, axis=0)]
 
     def fit(self, X, y):
+        start_time = time.time()
         support_vectors = []
         supports = []
         intercepts = []
 
         self.classes = np.unique(y)
-        solver = SMOSolver(X, self.C, self.kernal, self.tol, self.max_passes)
+        self.solver = SMOSolver(X, self.C, self.kernal, self.tol, self.max_passes, self.gamma, self.degree, self.lang)
         if len(self.classes) == 2:
-            self.intercepts, self.support_vectors, self.supports = solver(y)
+            self.supports, self.support_vectors, self.intercepts= self.solver(y)
             return
         for i, c in enumerate(self.classes):
             y_c = np.where(y == c, 1, -1)
-            si, sv, intercept= solver(y_c)
+            si, sv, intercept= self.solver(y_c)
             supports.append(si)
             support_vectors.append(sv)
             intercepts.append(intercept)
         self.intercepts = intercepts
         self.support_vectors = support_vectors
         self.supports = supports
+        end_time = time.time()
+        print(f"fit done, take time{end_time - start_time}")
 
     def get_intercept(self):
         self.check_fit()
@@ -152,20 +193,6 @@ class SVC:
         for i in range(len(self.classes)):
             coefs.append(self.supports[i] @ self.support_vectors[i])
         return coefs
-    
-
-    def linear_kernal(self, x1, x2, b=0):
-        return x1 @ x2.T + b
-    
-    def guassian_kernal(self, x1, x2, gamma=0.3):
-        num_x2_samples = x2.shape[0]
-        ret = []
-        for i in range(num_x2_samples):
-            ret.append(np.exp(-gamma * np.linalg.norm(x1 - x2[i], axis=1)**2))
-        return np.stack(ret, axis=1)
-    
-    def polynomial_kernal(self, x1, x2, degree=3):
-        return (x1 @ x2.T + 1)**degree
 
     def check_fit(self):
         if self.intercepts is None:
