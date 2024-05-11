@@ -3,6 +3,7 @@ sys.path.append("src/smo_kernal/build/")
 import numpy as np
 import ccsmo
 import time
+from multiprocessing.pool import ThreadPool 
 
 class SMOSolver:
     '''
@@ -11,7 +12,7 @@ class SMOSolver:
     [1] Platt, John. Fast Training of Support Vector Machines using Sequential Minimal Optimization, in Advances in Kernel Methods - Support Vector Learning, B. Scholkopf, C. Burges, A. Smola, eds., MIT Press (1998)
     [2] https://cs229.stanford.edu/materials/smo.pdf
     '''
-    def __init__(self, X, C, kernal, tol, max_passes=1000, gamma=0.3, degree=3, lang='c++'):
+    def __init__(self, X, C, kernal, tol, max_passes=1000, gamma=0.3, degree=3, lang='c++', heu=True):
         '''Args:
         C: float, regularization parameter
         tol: float, tolerance
@@ -35,13 +36,14 @@ class SMOSolver:
         self.K = self.kernal(self.X, self.X)
         self.lang = lang
         assert self.lang in ['c++', 'python']
+        self.heu = heu
 
     def update_state(self, y):
         self.y = y
         self.alphas = np.zeros(self.num_sample)
         self.b = 0
 
-    def solve(self, y):
+    def solve_python(self, y):
         self.update_state(y)
         passes = 0
         while(passes < self.max_passes):
@@ -98,10 +100,10 @@ class SMOSolver:
     
         return (self.alphas * self.y)[support_idx], self.X[support_idx], self.b
 
-    def __call__(self, y):
+    def solve(self, y):
         if self.lang == 'python':
-            return self.solve(y)
-        support, sv, b = ccsmo.solve(self.X, y.reshape(-1,1), self.kernal_type, self.C, self.tol, self.max_passes)
+            return self.solve_python(y)
+        support, sv, b = ccsmo.solve(self.X, y.reshape(-1,1), self.kernal_type, self.C, self.tol, self.max_passes, self.heu)
         return support.reshape(-1), [sv], [np.array([b])]
 
     def pred(self, support, X, X_test, b):
@@ -113,7 +115,6 @@ class SMOSolver:
     def get_j(self, i):
         return np.random.choice(np.delete(np.arange(self.num_sample), i))
     
-
     def linear_kernal(self, x1, x2, b=0):
         return x1 @ x2.T + b
     
@@ -132,7 +133,7 @@ class SVC:
     Args:
         X: numpy array, shape (n_samples, n_features), training data
         y: numpy array, shape (n_samples,), training labels'''
-    def __init__(self, C=1, kernal='linear', tol=1e-3, max_passes=100, gamma=0.3, degree=3, lang='c++'):
+    def __init__(self, C=1, kernal='linear', tol=1e-3, max_passes=1000, gamma=0.3, degree=3, lang='c++', heu=True, threading=True):
         self.C = C
         self.kernal = kernal
         self.tol = tol
@@ -145,6 +146,10 @@ class SVC:
         self.lang = lang
         self.gamma = gamma
         self.degree = degree
+        self.heu = heu
+        self.threading = threading
+        if self.threading:
+            assert self.lang == 'c++', 'Threading is only supported for c++ implementation'
 
     def predict(self, X):
         y_scores = []
@@ -157,27 +162,26 @@ class SVC:
         return self.classes[np.argmax(y_scores, axis=0)]
 
     def fit(self, X, y):
-        start_time = time.time()
-        support_vectors = []
-        supports = []
-        intercepts = []
-
         self.classes = np.unique(y)
-        self.solver = SMOSolver(X, self.C, self.kernal, self.tol, self.max_passes, self.gamma, self.degree, self.lang)
+        self.solver = SMOSolver(X, self.C, self.kernal, self.tol, self.max_passes, self.gamma, self.degree, self.lang, self.heu)
         if len(self.classes) == 2:
-            self.supports, self.support_vectors, self.intercepts= self.solver(y)
+            self.supports, self.support_vectors, self.intercepts= self.solver.solve(y)
             return
-        for i, c in enumerate(self.classes):
-            y_c = np.where(y == c, 1, -1)
-            si, sv, intercept= self.solver(y_c)
-            supports.append(si)
-            support_vectors.append(sv)
-            intercepts.append(intercept)
-        self.intercepts = intercepts
-        self.support_vectors = support_vectors
-        self.supports = supports
-        end_time = time.time()
-        print(f"fit done, take time{end_time - start_time}")
+        ys = []
+        res = []
+        if not self.threading:
+            for i, c in enumerate(self.classes):
+                y_c = np.where(y == c, 1, -1)
+                res.append(self.solver.solve(y_c))
+        else:
+            pool = ThreadPool()
+            for i, c in enumerate(self.classes):
+                y_c = np.where(y == c, 1, -1)
+                ys.append(y_c)
+            res = pool.map(self.solver.solve, ys)
+        self.supports = [k[0] for k in res]
+        self.support_vectors = [k[1] for k in res]
+        self.intercepts = [k[2] for k in res]
 
     def get_intercept(self):
         self.check_fit()

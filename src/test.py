@@ -3,7 +3,6 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 from src.svm import SVC
 from sklearn.svm import SVC as skSVC
-from sklearn.svm import LinearSVC
 import sys
 import time
 
@@ -43,7 +42,9 @@ def plot_contours(ax, clf, xx, yy, **params):
 
 def draw(X_train, y_train, svc, name):
     # Fit the model
+    start = time.time()
     svc.fit(X_train, y_train)
+    print(f"Time: {time.time()-start}")
     path = f"test_img/2d_decision_boundary_with_test_data_{name}.png"
 
     # Create a grid to evaluate model
@@ -82,26 +83,14 @@ def test_linear():
     y2 = 2 * np.ones(50)
     y3 = 3 * np.ones(50)
     y4 = 4 * np.ones(50)
-    # y5 = 5 * np.ones(50)
     y_train = np.concatenate([y1, y2, y3, y4])
 
-    svc_gt = LinearSVC()
-
-    svc1 = SVC(kernal='linear', max_passes=1000)
-    svc2 = SVC(kernal='linear', lang='python')
-
-    start_time = time.time()
-    svc_gt.fit(X_train, y_train)
-    end_time = time.time()
-
-    # print(f"take{end_time - start_time}")
-
+    # svc_gt = LinearSVC()
+    svc1 = SVC(kernal='linear', max_passes=1000, threading=True, heu=False)
+    # svc1 = skSVC(kernel='linear')
     # svc1.fit(X_train, y_train)
-    # svc2.fit(X_train, y_train)
-    # svc = skSVC()
 
-    draw(X_train, y_train, svc_gt, 'LinearSVC')
-    # draw(X_train, y_train, svc1, 'cpp')    
+    draw(X_train, y_train, svc1, 'cpp_heu')
 
 def test_kernal():
     num_point = 50
@@ -151,16 +140,44 @@ def test_cpp_kernal():
     svc1.fit(X_train, y_train)
     svc2.fit(X_train, y_train)
 
+def measure_time():
+    X1 = np.random.normal(loc=-5, scale= 1, size=(500, 50))
+    X2 = np.random.normal(loc=6, scale=1, size=(500, 50))
+    X3 = np.random.normal(loc=10, scale=1, size=(500, 50))
+    X4 = np.random.normal(loc=-10, scale=1, size=(500, 50))
+    X_train = np.concatenate([X1, X2, X3, X4])
+
+    y1 = np.ones(500)
+    y2 = 2 * np.ones(500)
+    y3 = 3 * np.ones(500)
+    y4 = 4 * np.ones(500)
+    y_train = np.concatenate([y1, y2, y3, y4])
+
+    svcgt = skSVC(kernel='linear')
+    svc_cpp_multi= SVC(kernal='linear', max_passes=100, heu=True)
+    svc_cpp_single = SVC(kernal='linear', max_passes=100, heu=True, threading=False)
+    # svc_cpp_withoutheu = SVC(kernal='linear', max_passes=100, heu=False)
+    # svc_python = SVC(kernal='linear', lang='python', threading=False)
+
+    t1 = time.time()
+    svcgt.fit(X_train, y_train)
+    t2 = time.time()
+    # svc_cpp_multi.fit(X_train, y_train)
+    t3 = time.time()
+    # svc_cpp_single.fit(X_train, y_train)
+    t4 = time.time()
+    # svc_cpp_withoutheu.fit(X_train, y_train)
+    # t4 = time.time()
+    # svc_python.fit(X_train, y_train)
+    # t5 = time.time()
+
+    print("Fitting time:")
+    print(f"sklearn: {t2-t1}")
+    print(f"cpp multithread: {t3-t2}")
+    print(f"cpp singlethread: {t4-t3}")
+    # print(f"cpp without heu: {t4-t3}")
+    # print(f"python: {t5-t4}")
 
 
-
-# test_cpp_kernal()
-# X = np.array([-5,-5, 6,6]).reshape(2,2)
-# y = np.array([1, -1])
-
-# svc = SVC(kernal='linear', lang='python')
-# svc.fit(X, y)
-# print(svc.supports)
-# print(svc.support_vectors)
-# print(svc.intercepts)
+# measure_time()
 test_linear()

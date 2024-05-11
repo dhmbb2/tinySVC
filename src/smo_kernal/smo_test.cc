@@ -17,7 +17,7 @@ int main() {
     X << 0, 1, 1, 2, 0, 0, 1, 1, -1,1,1,-1;
     y << 1, 1, -1, -1, 1, -1;
 
-    auto ret = solve(X, y, kernal, C, tol, max_passes);
+    auto ret = solve(X, y, kernal, C, tol, max_passes, false);
     std::cout << "Alphas: " << std::get<0>(ret) << std::endl;
     std::cout << "Support Vectors: " << std::get<1>(ret) << std::endl;
     std::cout << "Bias: " << std::get<2>(ret) << std::endl;
