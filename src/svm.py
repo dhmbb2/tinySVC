@@ -3,7 +3,7 @@ sys.path.append("src/smo_kernal/build/")
 import numpy as np
 import ccsmo
 import time
-from multiprocessing.pool import ThreadPool 
+from multiprocessing import Pool
 
 class SMOSolver:
     '''
@@ -174,7 +174,7 @@ class SVC:
                 y_c = np.where(y == c, 1, -1)
                 res.append(self.solver.solve(y_c))
         else:
-            pool = ThreadPool()
+            pool = Pool(processes=4)
             for i, c in enumerate(self.classes):
                 y_c = np.where(y == c, 1, -1)
                 ys.append(y_c)

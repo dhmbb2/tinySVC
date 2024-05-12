@@ -60,13 +60,16 @@ solve_heuristic(solverInfo& info) {
         if (iterate_whole_set) {
             for (int i = 0; i < info.num_samples; i++)
                 num_changed_alphas += j_loop(info, i, true);
-            std::cout << "num_changed_alphas: " << num_changed_alphas << '\n';
             passes++;
         } else {
-            auto supporting_vecs_idx = get_support_idx(info);
+            std::vector<int> supporting_vecs_idx;
+            for (int i = 0; i < info.alphas.size(); i++) {
+                if (info.alphas(i) > info.tol && info.alphas(i) < info.C - info.tol){
+                    supporting_vecs_idx.push_back(i);
+                }
+            }
             for (int idx : supporting_vecs_idx)
                 num_changed_alphas += j_loop(info, idx, true);
-            std::cout << "num_changed_alphas: " << num_changed_alphas << '\n';
             passes++;
         }
 
@@ -75,7 +78,6 @@ solve_heuristic(solverInfo& info) {
         else if (num_changed_alphas == 0)
             iterate_whole_set = true;
     }
-    std::cout << passes << '\n';
 
     return get_ret(info);
 }
@@ -122,13 +124,14 @@ int j_loop(solverInfo& info, int i, bool heu) {
     } else if (alpha_j_new < L) {
         alpha_j_new = L;
     }
-
+    update_Ecache(info, j);
     if (std::abs(alpha_j_new - info.alphas(j)) < 1e-5) {
         return 0;
     }
     double alpha_i_new = info.alphas(i) + info.y(i) * info.y(j) * (info.alphas(j) - alpha_j_new);
     double b1 = info.b - Ei - info.y(i) * (alpha_i_new - info.alphas(i)) * info.K(i, i) - info.y(j) * (alpha_j_new - info.alphas(j)) * info.K(i, j);
     double b2 = info.b - Ej - info.y(i) * (alpha_i_new - info.alphas(i)) * info.K(i, j) - info.y(j) * (alpha_j_new - info.alphas(j)) * info.K(j, j);
+    update_Ecache(info, i);
 
     if (0 < alpha_i_new && alpha_i_new < info.C) {
         info.b = b1;
@@ -140,8 +143,6 @@ int j_loop(solverInfo& info, int i, bool heu) {
 
     info.alphas(i) = alpha_i_new;
     info.alphas(j) = alpha_j_new;
-    update_Ecache(info, i);
-    update_Ecache(info, j);
     return 1;
 }
 
@@ -150,7 +151,7 @@ std::vector<int>
 get_support_idx(solverInfo& info) {
     std::vector<int> support_idx;
     for (int i = 0; i < info.alphas.size(); i++) {
-        if (info.alphas(i) > 0 && info.alphas(i) < info.C) {
+        if (info.alphas(i) > info.tol) {
             support_idx.push_back(i);
         }
     }
@@ -179,14 +180,15 @@ int get_j(solverInfo& info, int i, bool heu, double Ei) {
     info.E_cache[i] = std::make_tuple(Ei, true);
     auto pool = std::vector<int>();
     for (int k = 0; k < info.num_samples; k++) {
-        if (!std::get<1>(info.E_cache[k]) || k == i) {
+        if (!std::get<1>(info.E_cache[k]) || info.alphas(k) < info.tol || info.alphas(k) > info.C - info.tol){
             continue;
         }
         pool.push_back(k);
+        // std::cout << "k: " << k << std::endl;
     }
     // if there is none other validate E,
     //  just randomly pick a j
-    if (pool.size() == 1) {
+    if (pool.size() == 0) {
         while (j == i) 
             j = rand() % info.num_samples;
     } else {
@@ -194,7 +196,6 @@ int get_j(solverInfo& info, int i, bool heu, double Ei) {
         double max_diff = 0;
         for (auto idx : pool) {
             double Ej = std::get<0>(info.E_cache[idx]);
-            // double Ej = calculate_E(info, idx);
             double diff = std::abs(Ei - Ej);
             if (diff > max_diff) {
                 max_diff = diff;

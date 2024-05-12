@@ -2,3 +2,4 @@ __pycache__/
 test_img/
 src/smo_kernal/build
 .vscode/
+data/
