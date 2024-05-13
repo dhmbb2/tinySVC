@@ -18,13 +18,3 @@ find_package(Eigen3 REQUIRED)
 
 pybind11_add_module(ccsmo interface.cc smo_solver.cc)
 target_include_directories(ccsmo PRIVATE ${EIGEN3_INCLUDE_DIR})
-
-add_executable(smo_test smo_test.cc smo_solver.cc)
-target_include_directories(smo_test PRIVATE ${EIGEN3_INCLUDE_DIR})
-
-add_custom_target(
-    TARGET test
-    POST_BUILD
-    COMMAND smo_test
-    COMMENT "test smo"
-)

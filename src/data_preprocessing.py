@@ -3,9 +3,9 @@ import gzip
 import os
 
 
-mnist_path = 'data/mnist.pkl.gz'
+mnist_path = 'data/'
 save_path = 'data/mnist/'
-def load_data(path, group='train'):
+def load_data():
     if not os.path.exists(save_path):
         os.makedirs(save_path)
         
@@ -16,16 +16,16 @@ def load_data(path, group='train'):
         label_test = np.load(os.path.join(save_path, 'test_label.npy'))
         return image_train, label_train, image_test, label_test
 
-    with gzip.open(os.path.join(path, 'train-images-idx3-ubyte.gz'), 'rb') as f:
+    with gzip.open(os.path.join(mnist_path, 'train-images-idx3-ubyte.gz'), 'rb') as f:
         image_train = np.frombuffer(f.read(), np.uint8, offset=16).reshape(-1, 1, 28, 28) / 255.0
-    with gzip.open(os.path.join(path, 'train-labels-idx1-ubyte.gz'), 'rb') as f:
+    with gzip.open(os.path.join(mnist_path, 'train-labels-idx1-ubyte.gz'), 'rb') as f:
         label_train = np.frombuffer(f.read(), np.uint8, offset=8)
-    with gzip.open(os.path.join(f, 't10k-images-idx3-ubyte.gz'), 'rb') as f:
+    with gzip.open(os.path.join(mnist_path, 't10k-images-idx3-ubyte.gz'), 'rb') as f:
         image_test = np.frombuffer(f.read(), np.uint8, offset=16).reshape(-1, 1, 28, 28) / 255.0
-    with gzip.open(os.path.join(path, 't10k-labels-idx1-ubyte.gz'), 'rb') as f:
+    with gzip.open(os.path.join(mnist_path, 't10k-labels-idx1-ubyte.gz'), 'rb') as f:
         label_test = np.frombuffer(f.read(), np.uint8, offset=8)
-    remain_train = 5000
-    remain_test = 1000
+    remain_train = 500
+    remain_test = 100
 
     image_train_list, label_test_list = [], []
     for value in range(10):

@@ -5,6 +5,7 @@ from src.svm import SVC
 from sklearn.svm import SVC as skSVC
 import sys
 import time
+from SVM import SupportVectorClassifier
 
 # Create a SVC instance
 
@@ -50,15 +51,15 @@ def draw(X_train, y_train, svc, name):
     # Create a grid to evaluate model
     xx = np.linspace(0, np.max(X_train), 100)
     # w, b = svc.coef_[0], svc.intercept_
-    ww, bb = svc.get_coefs(), svc.get_intercept()
+    # ww, bb = svc.get_coefs(), svc.get_intercept()
 
     plt.figure()
-    # Calculate decision boundary (z = wx + b)
-    for i in range(4):
-        zz = (-ww[i][0, 0]/ww[i][0, 1]) * xx - bb[i]/ww[i][0, 1]
-        plt.plot(xx, zz[0])
-    # zz = (-ww[0, 0]/ww[0, 1]) * xx - bb/ww[0, 1]
-    plt.plot(xx, zz[0])
+    # # Calculate decision boundary (z = wx + b)
+    # for i in range(4):
+    #     zz = (-ww[i][0, 0]/ww[i][0, 1]) * xx - bb[i]/ww[i][0, 1]
+    #     plt.plot(xx, zz[0])
+    # # zz = (-ww[0, 0]/ww[0, 1]) * xx - bb/ww[0, 1]
+    # plt.plot(xx, zz[0])
     # #创建更多的测试数据
     X_test = np.random.normal(loc=[0,0], scale=[4,4], size=(100, 2))
     #使用模型进行预测
@@ -74,24 +75,27 @@ def draw(X_train, y_train, svc, name):
     plt.savefig(path)
 
 def test_linear():
-    X1 = np.random.normal(loc=[-5, -5], scale=[1, 1], size=(500, 2))
-    X2 = np.random.normal(loc=[6, 6], scale=[1, 1], size=(500, 2))
-    X3 = np.random.normal(loc=[10, -6], scale=[1, 1], size=(500, 2))
-    X4 = np.random.normal(loc=[-6, 10], scale=[1, 1], size=(500, 2))
-    X_train = np.concatenate([X1, X2, X3, X4])
+    X1 = np.random.normal(loc=-5, scale=1, size=(500, 2))
+    X2 = np.random.normal(loc=6, scale=1, size=(500, 2))
+    # X3 = np.random.normal(loc=[10, -10], scale=[1, 1], size=(5000, 2))
+    # X4 = np.random.normal(loc=[-6, 10], scale=[1, 1], size=(500, 2))
+    X_train = np.concatenate([X1, X2])
 
-    y1 = np.ones(500)
-    y2 = 2 * np.ones(500)
-    y3 = 3 * np.ones(500)
-    y4 = 4 * np.ones(500)
-    y_train = np.concatenate([y1, y2, y3, y4])
+    y1 = -1 * np.ones(500)
+    y2 = 1 * np.ones(500)
+    # y3 = 1 * np.ones(5000)
+    # y4 = 1 * np.ones(500)
+    y_train = np.concatenate([y1, y2])
 
     # svc_gt = LinearSVC()
-    svc1 = SVC(kernal='linear', max_passes=1000, threading=True, heu=True)
+    svc1 = SVC(kernal='linear', max_passes=100, threading=False, heu=True, lang='python')
     # svc1 = skSVC(kernel='linear')
+    # svc1 = SupportVectorClassifier()
+    # t1 = time.time()
     # svc1.fit(X_train, y_train)
-
-    draw(X_train, y_train, svc1, 'cpp_heu')
+    # t2  = time.time()
+    # print(f"Time: {t2-t1}")
+    draw(X_train, y_train, svc1, 'python_heu')
 
 def test_kernal():
     num_point = 50
@@ -124,7 +128,7 @@ def test_kernal():
     X = np.concatenate([X1, X2, X3])
     Y = np.concatenate([Y1, Y2, Y3])
 
-    draw(X, Y, svc)
+    draw(X, Y, svc, 'guassian')
 
 def test_cpp_kernal():
     X1 = np.random.normal(loc=-1, scale=1, size=(50, 2))
@@ -142,43 +146,45 @@ def test_cpp_kernal():
     svc2.fit(X_train, y_train)
 
 def measure_time():
-    X1 = np.random.normal(loc=-5, scale= 1, size=(500, 50))
-    X2 = np.random.normal(loc=6, scale=1, size=(500, 50))
-    X3 = np.random.normal(loc=10, scale=1, size=(500, 50))
-    X4 = np.random.normal(loc=-10, scale=1, size=(500, 50))
+    X1 = np.random.normal(loc=-5, scale= 1, size=(500, 2))
+    X2 = np.random.normal(loc=6, scale=1, size=(500, 2))
+    X3 = np.random.normal(loc=10, scale=1, size=(500, 2))
+    X4 = np.random.normal(loc=-10, scale=1, size=(500, 2))
     X_train = np.concatenate([X1, X2, X3, X4])
 
     y1 = np.ones(500)
-    y2 = 2 * np.ones(500)
-    y3 = 3 * np.ones(500)
-    y4 = 4 * np.ones(500)
+    y2 = -1 * np.ones(500)
+    y3 =  -1 * np.ones(500)
+    y4 = -1  * np.ones(500)
     y_train = np.concatenate([y1, y2, y3, y4])
 
     svcgt = skSVC(kernel='linear')
     svc_cpp_multi= SVC(kernal='linear', max_passes=100, heu=True)
     svc_cpp_single = SVC(kernal='linear', max_passes=100, heu=True, threading=False)
+    svc_other = SupportVectorClassifier()
+    svc_python_heu = SVC(kernal='linear', lang='python', threading=False)
     # svc_cpp_withoutheu = SVC(kernal='linear', max_passes=100, heu=False)
     # svc_python = SVC(kernal='linear', lang='python', threading=False)
 
-    t1 = time.time()
-    svcgt.fit(X_train, y_train)
-    t2 = time.time()
-    svc_cpp_multi.fit(X_train, y_train)
-    t3 = time.time()
-    svc_cpp_single.fit(X_train, y_train)
     t4 = time.time()
+    svc_other.fit(X_train, y_train)
+    t5 = time.time()
+    svc_python_heu.fit(X_train, y_train)
+    t6 = time.time()
     # svc_cpp_withoutheu.fit(X_train, y_train)
     # t4 = time.time()
     # svc_python.fit(X_train, y_train)
     # t5 = time.time()
 
     print("Fitting time:")
-    print(f"sklearn: {t2-t1}")
-    print(f"cpp multithread: {t3-t2}")
-    print(f"cpp singlethread: {t4-t3}")
+    # print(f"cpp multithread: {t3-t2}")
+    # print(f"cpp singlethread: {t4-t3}")
+    print(f"other: {t5-t4}")
+    print(f"python heu: {t6-t5}")
     # print(f"cpp without heu: {t4-t3}")
     # print(f"python: {t5-t4}")
 
 
-measure_time()
-# test_linear()
+# measure_time()
+test_linear()
+# test_kernal()

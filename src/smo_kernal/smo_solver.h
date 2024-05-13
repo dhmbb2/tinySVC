@@ -36,7 +36,7 @@ struct solverInfo {
        b(0), max_passes(max_passes_) {}
 };
 
-std::tuple<Array, Matrix, double> solve(const Matrix&, const Array& , std::string, double, double, int, bool);
+std::tuple<Array, Matrix, double> solve(const Matrix&, const Array& , Matrix& , double, double, int, bool);
 std::tuple<Array, Matrix, double> solve_simple(solverInfo&);
 std::tuple<Array, Matrix, double> solve_heuristic(solverInfo &);
 

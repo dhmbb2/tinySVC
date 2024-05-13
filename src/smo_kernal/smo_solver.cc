@@ -14,14 +14,13 @@ std::tuple<Array, Matrix, double>
 solve(
     const Matrix &X, 
     const Array &y, 
-    std::string kernal, 
+    Matrix& K, 
     double C, 
     double tol, 
     int max_passes,
     bool heu
 ) {
     srand(static_cast<unsigned int>(time(0)));
-    Matrix K = calculate_K(X, kernal);
     solverInfo info(X, y, K, C, tol, X.rows(), max_passes);
     if (heu)
         return solve_heuristic(info);
@@ -184,7 +183,6 @@ int get_j(solverInfo& info, int i, bool heu, double Ei) {
             continue;
         }
         pool.push_back(k);
-        // std::cout << "k: " << k << std::endl;
     }
     // if there is none other validate E,
     //  just randomly pick a j
