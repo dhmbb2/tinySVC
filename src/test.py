@@ -2,10 +2,8 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 from src.svm import SVC
-from sklearn.svm import SVC as skSVC
 import sys
 import time
-from SVM import SupportVectorClassifier
 
 # Create a SVC instance
 
@@ -158,33 +156,28 @@ def measure_time():
     y4 = -1  * np.ones(500)
     y_train = np.concatenate([y1, y2, y3, y4])
 
-    svcgt = skSVC(kernel='linear')
-    svc_cpp_multi= SVC(kernal='linear', max_passes=100, heu=True)
-    svc_cpp_single = SVC(kernal='linear', max_passes=100, heu=True, threading=False)
-    svc_other = SupportVectorClassifier()
-    svc_python_heu = SVC(kernal='linear', lang='python', threading=False)
-    # svc_cpp_withoutheu = SVC(kernal='linear', max_passes=100, heu=False)
-    # svc_python = SVC(kernal='linear', lang='python', threading=False)
+    
+    svc_python_heu = SVC(kernal='linear', lang='python', heu=True)
+    svc_cpp_heu = SVC(kernal='linear', lang='c++', heu=True)
+    svc_cpp_withoutheu = SVC(kernal='linear', lang='c++', max_passes=100, heu=False)
+    svc_python_withoutheu = SVC(kernal='linear', lang='python', heu=False)
 
-    t4 = time.time()
-    svc_other.fit(X_train, y_train)
-    t5 = time.time()
+    t1 = time.time()
     svc_python_heu.fit(X_train, y_train)
-    t6 = time.time()
-    # svc_cpp_withoutheu.fit(X_train, y_train)
-    # t4 = time.time()
-    # svc_python.fit(X_train, y_train)
-    # t5 = time.time()
+    t2 = time.time()
+    svc_cpp_heu.fit(X_train, y_train)
+    t3 = time.time()
+    svc_cpp_withoutheu.fit(X_train, y_train)
+    t4 = time.time()
+    svc_python_withoutheu.fit(X_train, y_train)
+    t5 = time.time()
 
-    print("Fitting time:")
-    # print(f"cpp multithread: {t3-t2}")
-    # print(f"cpp singlethread: {t4-t3}")
-    print(f"other: {t5-t4}")
-    print(f"python heu: {t6-t5}")
-    # print(f"cpp without heu: {t4-t3}")
-    # print(f"python: {t5-t4}")
+    print(f"Python with heu: {t2-t1}")
+    print(f"Cpp with heu: {t3-t2}")
+    print(f"Cpp without heu: {t4-t3}")
+    print(f"Python without heu: {t5-t4}")
 
 
-# measure_time()
-test_linear()
+measure_time()
+# test_linear()
 # test_kernal()

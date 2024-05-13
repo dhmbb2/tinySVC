@@ -46,5 +46,4 @@ int j_loop(solverInfo&, int, bool);
 std::vector<int> get_support_idx(solverInfo&);
 double calculate_E(solverInfo&, int);
 int get_j(solverInfo&, int, bool, double);
-Matrix calculate_K(const Matrix&, std::string);
 void update_Ecache(solverInfo&, int);

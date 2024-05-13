@@ -204,6 +204,3 @@ int get_j(solverInfo& info, int i, bool heu, double Ei) {
     return j;
 }
 
-Matrix calculate_K(const Matrix &X, std::string kernal) {
-    return std::move(X * X.transpose());
-}

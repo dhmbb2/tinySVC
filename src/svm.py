@@ -3,6 +3,7 @@ sys.path.append("src/smo_kernal/build/")
 import numpy as np
 import ccsmo
 import time
+import multiprocessing
 from multiprocessing import Pool
 from tqdm import tqdm
 
@@ -38,7 +39,7 @@ class SMOSolver:
         self.y = y
         self.alphas = np.zeros(self.num_sample)
         self.b = 0
-        
+
     def j_loop(self, i):
         Ei = self.calculate_E(i)
         if ((self.y[i] * Ei < -self.tol) and (self.alphas[i] < self.C)) or \
@@ -125,7 +126,6 @@ class SMOSolver:
         support_idx = np.where(self.alphas > self.tol)[0]
         return (self.alphas * self.y)[support_idx], self.X[support_idx], self.b
 
-
     def solve_python(self, y):
         self.update_state(y)
         if self.heu:
@@ -142,7 +142,8 @@ class SMOSolver:
         return (self.alphas * self.y) @ self.K[:, i] + self.b - self.y[i]
 
     def get_j(self, Ei, i):
-        # return np.random.choice(np.delete(np.arange(self.num_sample), i))
+        if not self.heu:
+            return np.random.choice(np.delete(np.arange(self.num_sample), i))
         valid_idx = np.where((self.alphas > self.tol) * (self.alphas < self.C - self.tol))[0]
         if len(valid_idx) > 0:
             j = valid_idx[np.argmax(np.abs(self.E_cache[valid_idx] - Ei))]
@@ -155,7 +156,7 @@ class SVC:
     Args:
         X: numpy array, shape (n_samples, n_features), training data
         y: numpy array, shape (n_samples,), training labels'''
-    def __init__(self, C=1, kernal='linear', tol=1e-5, max_passes=1000, gamma=0.3, degree=3, lang='c++', heu=True, threading=True, strategy='ovo'):
+    def __init__(self, C=1, kernal='linear', tol=1e-5, max_passes=100, gamma=0.03, degree=3, lang='python', heu=True, strategy='ovo'):
         self.C = C
         self.kernal_type = kernal
         self.tol = tol
@@ -169,11 +170,9 @@ class SVC:
         self.gamma = gamma
         self.degree = degree
         self.heu = heu
-        self.threading = threading
         self.num_classes = None
-        if self.threading:
-            assert self.lang == 'c++', 'Threading is only supported for c++ implementation'
         self.strategy = strategy
+        assert self.strategy in ['ovr', 'ovo'], 'Invalid strategy. Please choose from ovr or ovo'
         if self.kernal_type == 'linear':
             self.kernal = self.linear_kernal
         elif self.kernal_type == 'guassian':
@@ -183,42 +182,33 @@ class SVC:
         else:
             raise ValueError('Invalid kernal type. Please choose from linear, guassian or polynomial')
 
-    # def predict(self, X):
-    #     y_scores = []
-    #     if len(self.classes) == 2:
-    #         y_scores = self.supports @ self.kernal(self.support_vectors, X) + self.intercepts
-    #         return np.sign(y_scores)
-    #     for i in range(len(self.classes)):
-    #         y_scores.append(self.supports[i] @ self.kernal(self.support_vectors[i], X) + self.intercepts[i])
-    #     y_scores = np.array(y_scores)
-    #     return self.classes[np.argmax(y_scores, axis=0)]
-
     def fit(self, X, y):
-        self.classes = np.unique(y)
         self.K = self.kernal(X, X)
+        self.classes = np.unique(y)
+        if self.strategy == 'ovr':
+            self.ovr_fit(X, y)
+        elif self.strategy == 'ovo':
+            self.ovo_fit(X, y)
+
+    def predict(self, X):
+        if self.strategy == 'ovr':
+            return self.predict_ovr(X)
+        return self.predict_ovo(X)
+
+    def ovr_fit(self, X, y):
         self.solver = SMOSolver(X, self.C, self.K, self.tol, self.max_passes, self.gamma, self.degree, self.lang, self.heu)
         if len(self.classes) == 2:
             self.supports, self.support_vectors, self.intercepts= self.solver(y)
             return
-        ys = []
         res = []
-        if not self.threading:
-            for i, c in tqdm(enumerate(self.classes)):
-                y_c = np.where(y == c, 1, -1)
-                res.append(self.solver(y_c))
-        else:
-            pool = Pool()
-            for i, c in enumerate(self.classes):
-                y_c = np.where(y == c, 1, -1)
-                ys.append(y_c)
-            res = pool.map(self.solver, ys)
+        for i, c in tqdm(enumerate(self.classes)):
+            y_c = np.where(y == c, 1, -1)
+            res.append(self.solver(y_c))
         self.supports = [k[0] for k in res]
         self.support_vectors = [k[1] for k in res]
         self.intercepts = [k[2] for k in res]
 
     def ovo_fit(self, X, y):
-        self.K = self.kernal(X, X)
-        self.classes = np.unique(y)
         self.supports = []
         self.support_vectors = []
         self.intercepts = []
@@ -235,7 +225,17 @@ class SVC:
                 self.intercepts.append(b)
                 print(f'Finish training for class {self.classes[i]} and {self.classes[j]}')
 
-    def predict(self, X):
+    def predict_ovr(self, X):
+        y_scores = []
+        if len(self.classes) == 2:
+            y_scores = self.supports @ self.kernal(self.support_vectors, X) + self.intercepts
+            return np.sign(y_scores)
+        for i in range(len(self.classes)):
+            y_scores.append(self.supports[i] @ self.kernal(self.support_vectors[i], X) + self.intercepts[i])
+        y_scores = np.array(y_scores)
+        return self.classes[np.argmax(y_scores, axis=0)]
+
+    def predict_ovo(self, X):
         vote = np.zeros((X.shape[0], len(self.classes)))
         for idx, (i, j) in tqdm(enumerate(self.classes_pair)):
             y = np.sign(self.supports[idx] @ self.kernal(self.support_vectors[idx], X) + self.intercepts[idx])
