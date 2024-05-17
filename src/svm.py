@@ -1,20 +1,23 @@
 import sys
-sys.path.append("src/smo_kernal/build/")
+import os
+if os.path.exists("src/smo_kernel/build/"):
+    sys.path.append("src/smo_kernel/build/")
+if os.path.exists("lib/"):
+    sys.path.append("lib/")
 import numpy as np
 import ccsmo
 import time
 import multiprocessing
 from multiprocessing import Pool
 from tqdm import tqdm
+from kernel import Kernel
+import pickle
 
 class SMOSolver:
     '''
     SMOSolver is a class that implements the Sequential Minimal Optimization algorithm for training a SVM.
-    Reference: 
-    [1] Platt, John. Fast Training of Support Vector Machines using Sequential Minimal Optimization, in Advances in Kernel Methods - Support Vector Learning, B. Scholkopf, C. Burges, A. Smola, eds., MIT Press (1998)
-    [2] https://cs229.stanford.edu/materials/smo.pdf
     '''
-    def __init__(self, X, C, kernal, tol, max_passes=100, gamma=0.3, degree=3, lang='c++', heu=True):
+    def __init__(self, X, C, kernal, tol=1e-4, max_passes=100, gamma=0.3, degree=3, lang='python', heu=True):
         '''Args:
         C: float, regularization parameter
         tol: float, tolerance
@@ -25,7 +28,6 @@ class SMOSolver:
         self.C = C
         self.tol = tol
         self.max_passes = max_passes
-        self.kernal_type = kernal
         self.num_sample = self.X.shape[0]
         self.gamma = gamma
         self.degree = degree
@@ -108,7 +110,7 @@ class SMOSolver:
             elif num_changed_alphas == 0:
                 iter_whole_set = 1
         support_idx = np.where(self.alphas > self.tol)[0]
-        return (self.alphas * self.y)[support_idx], self.X[support_idx], self.b
+        return (self.alphas * self.y), (self.alphas * self.y)[support_idx], self.X[support_idx], self.b
 
     def solve_python_simple(self, y):
         self.update_state(y)
@@ -152,13 +154,8 @@ class SMOSolver:
         return j
         
 class SVC:
-    '''
-    Args:
-        X: numpy array, shape (n_samples, n_features), training data
-        y: numpy array, shape (n_samples,), training labels'''
-    def __init__(self, C=1, kernal='linear', tol=1e-5, max_passes=100, gamma=0.03, degree=3, lang='python', heu=True, strategy='ovo'):
+    def __init__(self, C=1, kernel='linear', tol=1e-5, max_passes=100, gamma=0.03, gamma_poly=1, degree=3, lang='python', heu=True, strategy='ovo'):
         self.C = C
-        self.kernal_type = kernal
         self.tol = tol
         self.max_passes = max_passes
         self.classes = None
@@ -173,17 +170,23 @@ class SVC:
         self.num_classes = None
         self.strategy = strategy
         assert self.strategy in ['ovr', 'ovo'], 'Invalid strategy. Please choose from ovr or ovo'
-        if self.kernal_type == 'linear':
-            self.kernal = self.linear_kernal
-        elif self.kernal_type == 'guassian':
-            self.kernal = self.guassian_kernal
-        elif self.kernal_type == 'polynomial':
-            self.kernal = self.polynomial_kernal
-        else:
-            raise ValueError('Invalid kernal type. Please choose from linear, guassian or polynomial')
+        self.gamma_poly = gamma_poly
 
-    def fit(self, X, y):
-        self.K = self.kernal(X, X)
+        if isinstance(kernel, Kernel):
+            self.kernel = kernel
+        else:
+            if kernel == 'linear':
+                self.kernel = self.linear_kernal
+            elif kernel == 'guassian':
+                self.kernel = self.guassian_kernal
+            elif kernel == 'polynomial':
+                self.kernel = self.polynomial_kernal
+            else:
+                raise ValueError('Invalid kernal type. Please choose from linear, guassian or polynomial or custom')
+
+
+    def fit(self, X, y, ):
+        self.K = self.kernel(X, X)
         self.classes = np.unique(y)
         if self.strategy == 'ovr':
             self.ovr_fit(X, y)
@@ -198,10 +201,11 @@ class SVC:
     def ovr_fit(self, X, y):
         self.solver = SMOSolver(X, self.C, self.K, self.tol, self.max_passes, self.gamma, self.degree, self.lang, self.heu)
         if len(self.classes) == 2:
-            self.supports, self.support_vectors, self.intercepts= self.solver(y)
+            _, self.supports, self.support_vectors, self.intercepts= self.solver(y)
             return
         res = []
         for i, c in tqdm(enumerate(self.classes)):
+            print(f'Fitting for class {c}')
             y_c = np.where(y == c, 1, -1)
             res.append(self.solver(y_c))
         self.supports = [k[0] for k in res]
@@ -212,18 +216,20 @@ class SVC:
         self.supports = []
         self.support_vectors = []
         self.intercepts = []
-        for i in range(len(self.classes)):
-            for j in range(i+1, len(self.classes)):
-                idx = np.where((y == self.classes[i]) | (y == self.classes[j]))[0]
-                X_c= X[idx]
-                y_c = np.where(y[idx] == self.classes[i], -1, 1)
-                solver = SMOSolver(X_c, self.C, self.K[idx,:][:,idx], self.tol, self.max_passes, self.gamma, self.degree, self.lang, self.heu)
-                support, sv, b = solver(y_c)
-                self.classes_pair.append((i, j))
-                self.supports.append(support)
-                self.support_vectors.append(sv)
-                self.intercepts.append(b)
-                print(f'Finish training for class {self.classes[i]} and {self.classes[j]}')
+        with tqdm(total=len(self.classes) * (len(self.classes) - 1) // 2) as pbar:
+            for i in range(len(self.classes)):
+                for j in range(i+1, len(self.classes)):
+                    idx = np.where((y == self.classes[i]) | (y == self.classes[j]))[0]
+                    X_c= X[idx]
+                    y_c = np.where(y[idx] == self.classes[i], -1, 1)
+                    solver = SMOSolver(X_c, self.C, self.K[idx,:][:,idx], self.tol, self.max_passes, self.gamma, self.degree, self.lang, self.heu)
+                    _, support, sv, b = solver(y_c)
+                    self.classes_pair.append((i, j))
+                    self.supports.append(support)
+                    self.support_vectors.append(sv)
+                    self.intercepts.append(b)
+                    pbar.update(1)
+                # print(f'Finish training for class {self.classes[i]} and {self.classes[j]}')
 
     def predict_ovr(self, X):
         y_scores = []
@@ -231,14 +237,14 @@ class SVC:
             y_scores = self.supports @ self.kernal(self.support_vectors, X) + self.intercepts
             return np.sign(y_scores)
         for i in range(len(self.classes)):
-            y_scores.append(self.supports[i] @ self.kernal(self.support_vectors[i], X) + self.intercepts[i])
+            y_scores.append(self.supports[i] @ self.kernel(self.support_vectors[i], X) + self.intercepts[i])
         y_scores = np.array(y_scores)
         return self.classes[np.argmax(y_scores, axis=0)]
 
     def predict_ovo(self, X):
         vote = np.zeros((X.shape[0], len(self.classes)))
         for idx, (i, j) in tqdm(enumerate(self.classes_pair)):
-            y = np.sign(self.supports[idx] @ self.kernal(self.support_vectors[idx], X) + self.intercepts[idx])
+            y = np.sign(self.supports[idx] @ self.kernel(self.support_vectors[idx], X) + self.intercepts[idx])
             vote[np.where(y == -1)[0], i] += 1
             vote[np.where(y == 1)[0], j] += 1
         return self.classes[np.argmax(vote, axis=1)]
@@ -262,15 +268,19 @@ class SVC:
         if self.intercepts is None:
             raise ValueError('Model has not been trained yet. Please call fit method first.')
         
-    def linear_kernal(self, x1, x2, b=0):
-        return x1 @ x2.T + b
+    def linear_kernal(self, x1, x2):
+        return x1 @ x2.T
     
     def guassian_kernal(self, x1, x2):
+        
+        print("preparing guassian kernel")
         num_x2_samples = x2.shape[0]
         ret = []
         for i in range(num_x2_samples):
             ret.append(np.exp(-self.gamma * np.linalg.norm(x1 - x2[i], axis=1)**2))
-        return np.stack(ret, axis=1)
+        print("finish preparing guassian kernel")
+        ret = np.stack(ret, axis=1)
+        return ret
     
     def polynomial_kernal(self, x1, x2):
-        return (x1 @ x2.T + 1)**self.degree
+        return (self.gamma_poly * x1 @ x2.T + 1)**self.degree

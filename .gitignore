@@ -1,5 +1,7 @@
 __pycache__/
 test_img/
-src/smo_kernal/build
+src/smo_kernel/build
 .vscode/
 data/
+exp_imgs/
+exp_output/
