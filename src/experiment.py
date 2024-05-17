@@ -161,43 +161,6 @@ def plot_results():
     # plt.yticks(np.arange(0.0, 1.0, 0.1))
     plt.savefig('exp_imgs/abla_poly2.png')
 
-def multi_kernel():
-    kernel = Kernel(kernel=['linear', 'poly', 'rbf'], kernel_coeff=[0.333,0.333,0.333], \
-                    gamma_gua=2.0**-5, degree=2, gamma_poly=2.0**-2)
-    test_mnist(kernel=kernel)
-
-def multi_kernel():
-    file_path = 'output.txt'
-    ts = np.arange(0,1,0.1)
-    for i_ in range(10):
-        for j_ in range(10):
-                i, j = ts[i_], ts[j_]
-                k = 1-i-j
-                if k < 0:
-                    continue
-                kernel = Kernel(kernel=['linear', 'poly', 'rbf'], kernel_coeff=[i,j,k], \
-                    gamma_gua=2.0**-5, degree=2, gamma_poly=2.0**-2 )
-                acc, train_acc = test_mnist(kernel=kernel, C = 1)
-                print(f"Accuracy: {acc} and train_acc={train_acc}, for linear={i}, poly={j}, rbf={k}")
-                with open(file_path, 'a') as f:
-                    f.write(f"Accuracy: {acc} and train_acc={train_acc}, for linear={i}, poly={j}, rbf={k}\n")
-
-def multi_kernel():
-    file_path = 'output.txt'
-    ts = np.arange(0,1,0.1)
-    for i_ in range(10):
-        for j_ in range(10):
-                i, j = ts[i_], ts[j_]
-                k = 1-i-j
-                if k < 0:
-                    continue
-                kernel = Kernel(kernel=['linear', 'poly', 'rbf'], kernel_coeff=[i,j,k], \
-                    gamma_gua=2.0**-5, degree=2, gamma_poly=2.0**-2 )
-                acc, train_acc = test_mnist(kernel=kernel, C = 1)
-                print(f"Accuracy: {acc} and train_acc={train_acc}, for linear={i}, poly={j}, rbf={k}")
-                with open(file_path, 'a') as f:
-                    f.write(f"Accuracy: {acc} and train_acc={train_acc}, for linear={i}, poly={j}, rbf={k}\n")
-
 def test_heu():
     
     num = np.arange(50, 500, 50)
@@ -272,7 +235,6 @@ def draw_multiclass():
     y4 = 4 * np.ones(500)
     y_train = np.concatenate([y1, y2, y3, y4])
 
-    # svc_gt = LinearSVC()
     svc1 = SVC(max_passes=100, heu=True, lang='python', strategy='ovo')
     svc2 = SVC(max_passes=100, heu=True, lang='c++', strategy='ovr')
     draw(X_train, y_train, svc1, 'ovo')
@@ -334,10 +296,10 @@ def test_mkl_mnist():
     poly2 = Kernel(kernel='poly', degree=2, gamma_poly=2.0**-2)
     poly3 = Kernel(kernel='poly', degree=4, gamma_poly=2.0**-6)
 
-    # mkl = MKL(kernels = [poly1, poly2, poly3])
-    # kernel = mkl.get_kernel(image_train, label_train)
-    # acc_po, train_acc_po = test_mnist(kernel=kernel)
-    # print(f"Accuracy: {acc_po} and train_acc={train_acc_po}")
+    mkl = MKL(kernels = [poly1, poly2, poly3])
+    kernel = mkl.get_kernel(image_train, label_train)
+    acc_po, train_acc_po = test_mnist(kernel=kernel)
+    print(f"Accuracy: {acc_po} and train_acc={train_acc_po}")
 
     mkl = MKL(kernels = [rbf1, rbf2, rbf3, poly1, poly2, poly3])
     kernel = mkl.get_kernel(image_train, label_train)
@@ -350,17 +312,17 @@ def test_mkl_hog():
     rbf2 = Kernel(kernel='rbf', gamma_gua=0.05)
     rbf3 = Kernel(kernel='rbf', gamma_gua=0.07)
  
-    # mkl = MKL(kernels = [rbf1, rbf2, rbf3])
-    # kernel = mkl.get_kernel(image_train, label_train)
-    # test_hog(kernel=kernel)
+    mkl = MKL(kernels = [rbf1, rbf2, rbf3])
+    kernel = mkl.get_kernel(image_train, label_train)
+    test_hog(kernel=kernel)
 
     poly1 = Kernel(kernel='poly', degree=3, gamma_poly=0.07)
     poly2 = Kernel(kernel='poly', degree=2, gamma_poly=0.1)
     poly3 = Kernel(kernel='poly', degree=4, gamma_poly=0.05)
 
-    # mkl = MKL(kernels = [poly1, poly2, poly3])
-    # kernel = mkl.get_kernel(image_train, label_train)
-    # test_hog(kernel=kernel)
+    mkl = MKL(kernels = [poly1, poly2, poly3])
+    kernel = mkl.get_kernel(image_train, label_train)
+    test_hog(kernel=kernel)
 
     mkl = MKL(kernels = [rbf1, rbf2, rbf3, poly1, poly2, poly3])
     kernel = mkl.get_kernel(image_train, label_train)
@@ -389,8 +351,8 @@ def abla_mkl():
     rbf2 = Kernel(kernel='rbf', gamma_gua=0.03)
     rbf3 = Kernel(kernel='rbf', gamma_gua=0.07)
  
-    # kernel = Kernel(kernel=[rbf1, rbf2, rbf3], kernel_coeff=[0.333,0.333,0.333])
-    # test_hog(kernel=kernel)
+    kernel = Kernel(kernel=[rbf1, rbf2, rbf3], kernel_coeff=[0.333,0.333,0.333])
+    test_hog(kernel=kernel)
 
     poly1 = Kernel(kernel='poly', degree=3, gamma_poly=0.07)
     poly2 = Kernel(kernel='poly', degree=2, gamma_poly=0.1)
@@ -421,26 +383,3 @@ def abla_mkl():
 
     kernel = Kernel(kernel=[rbf1, rbf2, rbf3, poly1, poly2, poly3], kernel_coeff=[0.166,0.166,0.166,0.166,0.166,0.166])
     test_mnist(kernel=kernel)
-
-
-
-
-
-# abla_linear()
-# plot_results('tmp.png', [-1,-2,-3,-4], [0.8, 0.9, 0.89, 0.88], 'ablation study of linear kernel', 'C')
-# abla_poly()
-# abla_guassian()
-# plot_results()
-# multi_kernel()
-# test_heu()
-# test_multiclass()
-# draw_multiclass()
-# test_boundry()
-# test_mkl()
-# hog_acc()
-# test_mkl_poly3()
-# test_mkl_rbf()
-# mnist_acc()
-# test_mkl_mnist()
-# test_mkl_hog()
-abla_mkl()
