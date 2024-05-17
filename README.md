@@ -1,9 +1,12 @@
-# TinySVC ![Static Badge](https://img.shields.io/badge/toy-Machine_Learning)
+# TinySVC ![Static Badge](https://img.shields.io/badge/toy-Machine_Learning-blue)
 
 Course project for SJTU Machine Learning. Implement a tiny support vector machine with heutistic parameters picking, OVO and OVR multiclass strategies. All options can be switched on and off for testing. Also Implement a MKL class with MKLGL algorithm for optimal multi-kernel coefficient training.
 
 ## Project Structure
-![Code Structure]("assets/structure.jpg")
+
+<div align=center>
+  <img src="assets/structure.jpg" width="700" />
+</div>
 
 ## Run
 Just download the code and start running.
@@ -11,7 +14,7 @@ Just download the code and start running.
 A cpp smo solver is also implemented(though relativly inferior in performance due to the deficiency of Eigen to run floating point arithmetics). A dynamic lib is provided in `lib\` which is compiled on Ubuntu 18.04.4 LTS with gcc version 9.4.0.
 
 If you wish to compile yourself, just download Eigen, python3-dev and pybind11.
-```bash
+```sh
 sudo apt-get install eigen, python3-dev
 pip install pybind11
 ```
