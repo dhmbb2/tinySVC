@@ -312,9 +312,9 @@ def test_mkl_hog():
     rbf2 = Kernel(kernel='rbf', gamma_gua=0.6)
     rbf3 = Kernel(kernel='rbf', gamma_gua=0.7)
  
-    # mkl = MKL(kernels = [rbf1, rbf2, rbf3])
-    # kernel = mkl.get_kernel(image_train, label_train)
-    # test_hog(kernel=kernel)
+    mkl = MKL(kernels = [rbf1, rbf2, rbf3])
+    kernel = mkl.get_kernel(image_train, label_train)
+    test_hog(kernel=kernel)
 
     poly1 = Kernel(kernel='poly', degree=3, gamma_poly=1)
     poly2 = Kernel(kernel='poly', degree=2, gamma_poly=1.2)
@@ -351,15 +351,15 @@ def abla_mkl():
     rbf2 = Kernel(kernel='rbf', gamma_gua=0.6)
     rbf3 = Kernel(kernel='rbf', gamma_gua=0.7)
  
-    # kernel = Kernel(kernel=[rbf1, rbf2, rbf3], kernel_coeff=[0.333,0.333,0.333])
-    # test_hog(kernel=kernel)
+    kernel = Kernel(kernel=[rbf1, rbf2, rbf3], kernel_coeff=[0.333,0.333,0.333])
+    test_hog(kernel=kernel)
 
     poly1 = Kernel(kernel='poly', degree=3, gamma_poly=1)
     poly2 = Kernel(kernel='poly', degree=2, gamma_poly=1.2)
     poly3 = Kernel(kernel='poly', degree=4, gamma_poly=0.5)
 
-    # kernel = Kernel(kernel=[poly1, poly2, poly3], kernel_coeff=[0.333,0.333,0.333])
-    # test_hog(kernel=kernel)
+    kernel = Kernel(kernel=[poly1, poly2, poly3], kernel_coeff=[0.333,0.333,0.333])
+    test_hog(kernel=kernel)
 
     kernel = Kernel(kernel=[rbf1, rbf2, rbf3, poly1, poly2, poly3], kernel_coeff=[0.166,0.166,0.166,0.166,0.166,0.166])
     test_hog(kernel=kernel)
@@ -383,9 +383,3 @@ def abla_mkl():
 
     kernel = Kernel(kernel=[rbf1, rbf2, rbf3, poly1, poly2, poly3], kernel_coeff=[0.166,0.166,0.166,0.166,0.166,0.166])
     test_mnist(kernel=kernel)
-
-
-if __name__ == '__main__':
-    # hog_acc()
-    abla_mkl()
-    # test_mkl_hog()
