@@ -272,13 +272,10 @@ class SVC:
         return x1 @ x2.T
     
     def guassian_kernal(self, x1, x2):
-        
-        print("preparing guassian kernel")
         num_x2_samples = x2.shape[0]
         ret = []
         for i in range(num_x2_samples):
             ret.append(np.exp(-self.gamma * np.linalg.norm(x1 - x2[i], axis=1)**2))
-        print("finish preparing guassian kernel")
         ret = np.stack(ret, axis=1)
         return ret
     

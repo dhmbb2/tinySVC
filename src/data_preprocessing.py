@@ -3,7 +3,6 @@ import gzip
 import os
 import pickle
 from skimage.feature import hog as skhog
-import cv2
 from tqdm import tqdm
 
 
@@ -91,7 +90,7 @@ def load_cifar10_hog():
         index = np.where(train_label == i)[0][:500]
         train_img_select.append(train_img[index])
         train_label_select.append(train_label[index])
-        index = np.where(test_label == i)[0][:100]
+        index = np.where(test_label == i)[0][100:200]
         test_img_select.append(test_img[index])
         test_label_select.append(test_label[index])
     train_img = np.concatenate(train_img_select)
@@ -104,43 +103,10 @@ def load_cifar10_hog():
     train_hog, train_label = train_hog[index], train_label[index]
     index = np.random.permutation(len(test_label))
     test_hog, test_label = test_hog[index], test_label[index]
-    train_hog, test_hog = BatchHOG(train_hog, partition=16), BatchHOG(test_hog, partition=16)
+    train_hog = np.array([skhog(train_hog[i], pixels_per_cell=(8, 8), cells_per_block=(2, 2), channel_axis=0) for i in range(len(train_hog))])
+    test_hog = np.array([skhog(test_hog[i], pixels_per_cell=(8, 8), cells_per_block=(2, 2), channel_axis=0) for i in range(len(test_hog))])
     np.save(os.path.join(save_path, 'train_hog.npy'), train_hog)
     np.save(os.path.join(save_path, 'train_label.npy'), train_label)
     np.save(os.path.join(save_path, 'test_hog.npy'), test_hog)
     np.save(os.path.join(save_path, 'test_label.npy'), test_label)
     return train_hog, train_label, test_hog, test_label
-
-def HOG(image, block=4, partition=8):
-    image = 0.299 * image[0] + 0.587 * image[1] + 0.114 * image[2]
-    height, width = image.shape
-    gradient = np.zeros((2, height, width), dtype=np.float32)
-    for i in range(1, height-1):
-        for j in range(1, width-1):
-            delta_x = image[i, j-1] - image[i, j+1]
-            delta_y = image[i+1, j] - image[i-1, j]
-            gradient[0, i, j] = np.sqrt(delta_x ** 2 + delta_y ** 2)
-            gradient[1, i, j] = np.degrees(np.arctan2(delta_y, delta_x))
-            if gradient[1, i, j] < 0:
-                gradient[1, i, j] += 180
-    unit = 360 / partition
-    vertical, horizontal = height // block, width // block
-    feature = np.zeros((vertical, horizontal, partition), dtype=np.float32)
-    for i in range(vertical):
-        for j in range(horizontal):
-            for k in range(block):
-                for l in range(block):
-                    rho = gradient[0, i*block+k, j*block+l]
-                    theta = gradient[1, i*block+k, j*block+l]
-                    index = int(theta // unit)
-                    feature[i, j, index] += rho
-            feature[i, j] /= np.linalg.norm(feature[i, j]) + 1e-6
-    return feature.reshape(-1)
-
-
-def BatchHOG(images, block=4, partition=8):
-    feature_list = []
-    for image in tqdm(images):
-        feature_list.append(HOG(image, block, partition))
-    return np.array(feature_list)
-
