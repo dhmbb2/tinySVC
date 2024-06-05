@@ -117,8 +117,8 @@ def abla_poly():
     plt.savefig(path)
 
 
-def abla_guassian():
-    path = 'exp_imgs/abla_guassian.png'
+def abla_gaussian():
+    path = 'exp_imgs/abla_gaussian.png'
     ts = np.arange(-7, 1, 1)
     Cs = np.arange(-3, 1, 1)
     colors = ['darkcyan', 'khaki', 'mediumseagreen', 'mediumpurple']
@@ -128,18 +128,18 @@ def abla_guassian():
     for i in range(len(Cs)):
         results = []
         for t in ts:
-            acc = test_mnist(kernel='guassian', gamma=2.0**t, C=2.0**Cs[i])
+            acc = test_mnist(kernel='gaussian', gamma=2.0**t, C=2.0**Cs[i])
             print(f"Accuracy: {acc} for gamma_poly={t}, C=2^{Cs[i]}")
             results.append(acc)
         all_results.append(results)
         plt.plot(ts, results, '--o', color=colors[i], label=f'C={Cs[i]}')
 
-    with open('exp_output/abla_guassian.pkl', 'wb') as f:
+    with open('exp_output/abla_gaussian.pkl', 'wb') as f:
         pickle.dump(all_results, f)
     plt.legend()
     plt.xlabel("gamma")
     plt.ylabel('Accuracy')
-    plt.title("ablation study of guassian kernel")
+    plt.title("ablation study of gaussian kernel")
     plt.grid(visible=0.5, axis='y')
     plt.xticks(ts)
     plt.savefig(path)
@@ -271,11 +271,11 @@ def test_boundry():
     X_train = np.concatenate([X1, X2, X3])
     y_train = np.concatenate([np.ones(50), 2 * np.ones(50), 3 * np.ones(50)])
 
-    svc1 = SVC(C=1, kernel='guassian', gamma=0.3)
+    svc1 = SVC(C=1, kernel='gaussian', gamma=0.3)
     svc2 = SVC(C=1, kernel='linear')
     svc3 = SVC(C=1, kernel='polynomial', degree=2)
 
-    draw(X_train, y_train, svc1, 'guassian')
+    draw(X_train, y_train, svc1, 'gaussian')
     draw(X_train, y_train, svc2, 'linear')
     draw(X_train, y_train, svc3, 'polynomial')
 
@@ -332,18 +332,18 @@ def test_mkl_hog():
 def hog_acc():
     acc1, train_acc1 = test_hog(C=0.7, kernel='linear')
     acc2, train_acc2 = test_hog(C=0.1, kernel='polynomial', degree=3, gamma_poly=0.5)
-    acc3, train_acc3 = test_hog(C=1, kernel='guassian', gamma=0.6)
+    acc3, train_acc3 = test_hog(C=1, kernel='gaussian', gamma=0.6)
     print(f"Linear: {acc1} and train_acc={train_acc1}")
     print(f"Poly: {acc2} and train_acc={train_acc2}")
-    print(f"Guassian: {acc3} and train_acc={train_acc3}")
+    print(f"Gaussian: {acc3} and train_acc={train_acc3}")
 
 def mnist_acc():
     acc1, train_acc1 = test_mnist(C=2**-5, kernel='linear')
     acc2, train_acc2 = test_mnist(C=1e-2, kernel='polynomial', degree=2, gamma_poly=2.0**-2)
-    acc3, train_acc3 = test_mnist(C=1, kernel='guassian', gamma=2.0**-5)
+    acc3, train_acc3 = test_mnist(C=1, kernel='gaussian', gamma=2.0**-5)
     print(f"Linear: {acc1} and train_acc={train_acc1}")
     print(f"Poly: {acc2} and train_acc={train_acc2}")
-    print(f"Guassian: {acc3} and train_acc={train_acc3}")
+    print(f"Gaussian: {acc3} and train_acc={train_acc3}")
 
 def abla_mkl():
     image_train, label_train, image_test, label_test = load_cifar10_hog()

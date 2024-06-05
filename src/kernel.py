@@ -28,7 +28,7 @@ class Kernel:
     def linear_kernal(self, x1, x2):
         return x1 @ x2.T
     
-    def guassian_kernal(self, x1, x2):
+    def gaussian_kernal(self, x1, x2):
         num_x2_samples = x2.shape[0]
         ret = []
         for i in range(num_x2_samples):
@@ -46,7 +46,7 @@ class Kernel:
         elif kernel == 'poly':
             return self.polynomial_kernal(x, y)
         elif kernel == 'rbf':
-            return self.guassian_kernal(x, y)
+            return self.gaussian_kernal(x, y)
         else:
             raise ValueError(f"Kernel {kernel} not implemented")
         

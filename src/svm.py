@@ -177,12 +177,12 @@ class SVC:
         else:
             if kernel == 'linear':
                 self.kernel = self.linear_kernal
-            elif kernel == 'guassian':
-                self.kernel = self.guassian_kernal
+            elif kernel == 'gaussian':
+                self.kernel = self.gaussian_kernal
             elif kernel == 'polynomial':
                 self.kernel = self.polynomial_kernal
             else:
-                raise ValueError('Invalid kernal type. Please choose from linear, guassian or polynomial or custom')
+                raise ValueError('Invalid kernal type. Please choose from linear, gaussian or polynomial or custom')
 
 
     def fit(self, X, y, ):
@@ -271,7 +271,7 @@ class SVC:
     def linear_kernal(self, x1, x2):
         return x1 @ x2.T
     
-    def guassian_kernal(self, x1, x2):
+    def gaussian_kernal(self, x1, x2):
         num_x2_samples = x2.shape[0]
         ret = []
         for i in range(num_x2_samples):
