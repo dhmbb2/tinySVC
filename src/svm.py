@@ -14,16 +14,19 @@ from kernel import Kernel
 import pickle
 
 class SMOSolver:
-    '''
-    SMOSolver is a class that implements the Sequential Minimal Optimization algorithm for training a SVM.
-    '''
-    def __init__(self, X, C, kernal, tol=1e-4, max_passes=100, gamma=0.3, degree=3, lang='python', heu=True):
-        '''Args:
-        C: float, regularization parameter
-        tol: float, tolerance
-        max_passes: int, maximum number of passes
-        kernal: str, kernal function, default is None
-        '''
+    def __init__(self, X, C, kernel, tol=1e-4, max_passes=100, gamma=0.3, degree=3, lang='python', heu=True):
+        """SMOSolver class to solve the optimization problem in SVM
+        Args:
+            X: np.array, training data
+            C: float, regularization parameter
+            kernel: np.array, kernel matrix
+            tol: float, tolerance
+            max_passes: int, maximum number of passes
+            gamma: float, gamma for gaussian kernel
+            degree: int, degree for polynomial kernel
+            lang: string, language to use, either 'c++' or 'python'
+            heu: bool, whether to use heuristics to choose the second alpha
+        """
         self.X = X
         self.C = C
         self.tol = tol
@@ -31,7 +34,7 @@ class SMOSolver:
         self.num_sample = self.X.shape[0]
         self.gamma = gamma
         self.degree = degree
-        self.K = kernal
+        self.K = kernel
         self.lang = lang
         assert self.lang in ['c++', 'python']
         self.heu = heu
@@ -43,6 +46,7 @@ class SMOSolver:
         self.b = 0
 
     def j_loop(self, i):
+        # inner loop for smo algorithm
         Ei = self.calculate_E(i)
         if ((self.y[i] * Ei < -self.tol) and (self.alphas[i] < self.C)) or \
                 ((self.y[i] * Ei > self.tol) and (self.alphas[i] > 0)):
@@ -94,6 +98,8 @@ class SMOSolver:
         num_changed_alphas = 0
         iter_whole_set = 1
 
+        # outer loop: first iterate over the whole set, then iterate over the non-boundary alphas
+        # if the non-boundary alphas do not change, iterate over the whole set again. Until convergence
         while passes < self.max_passes and (num_changed_alphas or iter_whole_set):
             num_changed_alphas = 0
             if iter_whole_set:
@@ -146,6 +152,7 @@ class SMOSolver:
     def get_j(self, Ei, i):
         if not self.heu:
             return np.random.choice(np.delete(np.arange(self.num_sample), i))
+        # if using heuristics, choosing the j that maximizes the |Ei - Ej|
         valid_idx = np.where((self.alphas > self.tol) * (self.alphas < self.C - self.tol))[0]
         if len(valid_idx) > 0:
             j = valid_idx[np.argmax(np.abs(self.E_cache[valid_idx] - Ei))]
@@ -155,6 +162,19 @@ class SMOSolver:
         
 class SVC:
     def __init__(self, C=1, kernel='linear', tol=1e-5, max_passes=100, gamma=0.03, gamma_poly=1, degree=3, lang='python', heu=True, strategy='ovo'):
+        """Support Vector Classifier class
+        Args:
+            C: float, regularization parameter
+            kernel: string, kernel type
+            tol: float, tolerance
+            max_passes: int, maximum number of passes
+            gamma: float, gamma for gaussian kernel
+            gamma_poly: float, gamma for polynomial kernel
+            degree: int, degree for polynomial kernel
+            lang: string, language to use, either 'c++' or 'python'
+            heu: bool, whether to use heuristics to choose the second alpha
+            strategy: string, one-vs-one or one-vs-rest
+        """
         self.C = C
         self.tol = tol
         self.max_passes = max_passes
@@ -176,13 +196,13 @@ class SVC:
             self.kernel = kernel
         else:
             if kernel == 'linear':
-                self.kernel = self.linear_kernal
+                self.kernel = self.linear_kernel
             elif kernel == 'gaussian':
-                self.kernel = self.gaussian_kernal
+                self.kernel = self.gaussian_kernel
             elif kernel == 'polynomial':
-                self.kernel = self.polynomial_kernal
+                self.kernel = self.polynomial_kernel
             else:
-                raise ValueError('Invalid kernal type. Please choose from linear, gaussian or polynomial or custom')
+                raise ValueError('Invalid kernel type. Please choose from linear, gaussian or polynomial or custom')
 
 
     def fit(self, X, y, ):
@@ -219,6 +239,7 @@ class SVC:
         with tqdm(total=len(self.classes) * (len(self.classes) - 1) // 2) as pbar:
             for i in range(len(self.classes)):
                 for j in range(i+1, len(self.classes)):
+                    # get the indices of the classes
                     idx = np.where((y == self.classes[i]) | (y == self.classes[j]))[0]
                     X_c= X[idx]
                     y_c = np.where(y[idx] == self.classes[i], -1, 1)
@@ -234,7 +255,7 @@ class SVC:
     def predict_ovr(self, X):
         y_scores = []
         if len(self.classes) == 2:
-            y_scores = self.supports @ self.kernal(self.support_vectors, X) + self.intercepts
+            y_scores = self.supports @ self.kernel(self.support_vectors, X) + self.intercepts
             return np.sign(y_scores)
         for i in range(len(self.classes)):
             y_scores.append(self.supports[i] @ self.kernel(self.support_vectors[i], X) + self.intercepts[i])
@@ -243,6 +264,7 @@ class SVC:
 
     def predict_ovo(self, X):
         vote = np.zeros((X.shape[0], len(self.classes)))
+        # voting for each pair of classes
         for idx, (i, j) in tqdm(enumerate(self.classes_pair)):
             y = np.sign(self.supports[idx] @ self.kernel(self.support_vectors[idx], X) + self.intercepts[idx])
             vote[np.where(y == -1)[0], i] += 1
@@ -268,10 +290,10 @@ class SVC:
         if self.intercepts is None:
             raise ValueError('Model has not been trained yet. Please call fit method first.')
         
-    def linear_kernal(self, x1, x2):
+    def linear_kernel(self, x1, x2):
         return x1 @ x2.T
     
-    def gaussian_kernal(self, x1, x2):
+    def gaussian_kernel(self, x1, x2):
         num_x2_samples = x2.shape[0]
         ret = []
         for i in range(num_x2_samples):
@@ -279,5 +301,5 @@ class SVC:
         ret = np.stack(ret, axis=1)
         return ret
     
-    def polynomial_kernal(self, x1, x2):
+    def polynomial_kernel(self, x1, x2):
         return (self.gamma_poly * x1 @ x2.T + 1)**self.degree

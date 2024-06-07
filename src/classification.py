@@ -5,6 +5,8 @@ import numpy as np
 import time
 
 def test_mnist(C=2**-5, kernel='linear', gamma_poly=1, degree=2, gamma=1, heu=True, strategy='ovo'):
+    """API for classification on MNIST
+    """
     image_train, label_train, image_test, label_test = load_mnist_data()
     image_train = image_train.reshape(-1, 28*28)
     image_test = image_test.reshape(-1, 28*28)
@@ -27,6 +29,8 @@ def test_mnist(C=2**-5, kernel='linear', gamma_poly=1, degree=2, gamma=1, heu=Tr
     return acc, train_acc
 
 def test_hog(C=1, kernel='linear', gamma_poly=1, degree=2, gamma=1, heu=True, strategy='ovo'):
+    """API for classification on HOG
+    """
     image_train, label_train, image_test, label_test = load_cifar10_hog()
     start = time.time()
     svc = SVC(C=C, tol=1e-4, max_passes=100, kernel=kernel, degree=degree, gamma_poly=gamma_poly, gamma=gamma, heu=heu ,strategy=strategy)

@@ -4,6 +4,17 @@ import os
 
 class Kernel:
     def __init__(self, kernel='linear', degree=2, gamma_gua=0.03, gamma_sig=1, gamma_poly=0.1, coef0=0, kernel_coeff=[1.0]):
+        """Kernel class to define different types of kernels, support multiple kernels combination 
+        with customized coefficients
+        Args:
+            kernel: string or list of strings or list of Kernel objects, kernel type(s) to be used
+            degree: int, degree of polynomial kernel
+            gamma_gua: float, gamma for gaussian kernel
+            gamma_sig: float, gamma for sigmoid kernel
+            gamma_poly: float, gamma for polynomial kernel
+            coef0: float, constant term for polynomial and sigmoid kernel
+            kernel_coeff: list of floats, coefficients for each kernel
+        """
         self.kernel_type = kernel
         self.degree = degree
         self.gamma_gua = gamma_gua
@@ -25,28 +36,28 @@ class Kernel:
         
         self.kernel = kernel
 
-    def linear_kernal(self, x1, x2):
+    def linear_kernel(self, x1, x2):
         return x1 @ x2.T
     
-    def gaussian_kernal(self, x1, x2):
+    def gaussian_kernel(self, x1, x2):
         num_x2_samples = x2.shape[0]
         ret = []
         for i in range(num_x2_samples):
             ret.append(np.exp(-self.gamma_gua * np.linalg.norm(x1 - x2[i], axis=1)**2))
         return np.stack(ret, axis=1)
     
-    def polynomial_kernal(self, x1, x2):
+    def polynomial_kernel(self, x1, x2):
         return (self.gamma_poly * x1 @ x2.T + 1)**self.degree
 
     def kernel_function(self, kernel, x, y):
         if isinstance(kernel, Kernel):
            return kernel(x, y)
         if kernel == 'linear':
-            return self.linear_kernal(x, y)
+            return self.linear_kernel(x, y)
         elif kernel == 'poly':
-            return self.polynomial_kernal(x, y)
+            return self.polynomial_kernel(x, y)
         elif kernel == 'rbf':
-            return self.gaussian_kernal(x, y)
+            return self.gaussian_kernel(x, y)
         else:
             raise ValueError(f"Kernel {kernel} not implemented")
         
